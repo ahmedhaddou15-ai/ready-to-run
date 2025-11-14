@@ -1,0 +1,13 @@
+{
+  "id": "default-devis",
+  "type": "devis",
+  "name": "Default Devis Template",
+  "header": "My Company SARL\n123 Rue Exemple\nSIRET: 000000",
+  "footer": "Payment terms: 30 days - TVA intra: 20%",
+  "content": "Document {{document_number}}\\nDate: {{date}}\\nClient: {{client_name}}\\nTotal TTC: {{total_ttc}}",
+  "is_default": true,
+  "company_info": {
+    "name": "My Company SARL",
+    "address": "123 Rue Exemple"
+  }
+}
