@@ -1,36 +1,41 @@
-import { localDB } from '../services/localStorageService';
-import { format } from 'date-fns';
+import { DocumentType, DocumentTypeCode } from "../types";
+import { Storage } from "../services/storage";
+import { v4 as uuidv4 } from "uuid";
 
-type SeqRecord = Record<string, { year: number; seq: number }>;
-
-const KEY = 'numberingSequences';
-
-export function generateNumber(typeCode: string) {
-  // typeCode example mapping: devis -> DEV, facture -> FAC, bon_de_commande -> BC, bon_de_livraison -> BL
-  const mapping: Record<string, string> = {
-    devis: 'DEV',
-    facture: 'FAC',
-    bon_de_commande: 'BC',
-    bon_de_livraison: 'BL'
-  };
-  const code = mapping[typeCode] ?? typeCode.toUpperCase().slice(0, 3);
-  const now = new Date();
-  const year = Number(format(now, 'yyyy'));
-  const sequences: SeqRecord = localDB.get(KEY, {});
-  const key = code;
-  const current = sequences[key] ?? { year, seq: 0 };
-  if (current.year !== year) {
-    current.year = year;
-    current.seq = 0;
+/**
+ * Generate automatic document number in format CODE-YEAR/SEQUENCE
+ * e.g. DEV-2024/0001
+ * Sequence resets each year per type.
+ * Accepts optional manualOverride to use provided string.
+ */
+export function generateDocumentNumber(type: DocumentType, manualOverride?: string) {
+  if (manualOverride && manualOverride.trim().length > 0) {
+    return manualOverride.trim();
   }
-  current.seq += 1;
-  sequences[key] = current;
-  localDB.set(KEY, sequences);
-  const seqStr = String(current.seq).padStart(4, '0');
-  return `${code}-${year}/${seqStr}`;
+
+  const code = DocumentTypeCode[type];
+  const year = new Date().getFullYear().toString();
+  const state = Storage.getNumberingState();
+  if (!state[code]) state[code] = {};
+  if (!state[code][year]) state[code][year] = 0;
+  state[code][year] = state[code][year] + 1;
+  Storage.saveNumberingState(state);
+
+  const seq = String(state[code][year]).padStart(4, "0");
+  return `${code}-${year}/${seq}`;
 }
 
-export function manualOverrideNumber(number: string) {
-  // Optionally adjust sequences to reflect override (not changing seq store here)
-  return number;
+// helper to reset (used for tests or admin)
+export function resetNumberingForYear(type: DocumentType, year?: number) {
+  const code = DocumentTypeCode[type];
+  const state = Storage.getNumberingState();
+  const y = (year || new Date().getFullYear()).toString();
+  if (!state[code]) state[code] = {};
+  state[code][y] = 0;
+  Storage.saveNumberingState(state);
+}
+
+// small helper to generate ids for resources
+export function makeId(prefix = "id") {
+  return `${prefix}_${uuidv4()}`;
 }

@@ -1,11 +1,18 @@
-export type DocumentType = 'devis' | 'bon_de_commande' | 'facture' | 'bon_de_livraison';
+export type DocumentType = "devis" | "bon-de-commande" | "facture" | "bon-de-livraison";
+
+export const DocumentTypeCode: Record<DocumentType, string> = {
+  devis: "DEV",
+  "bon-de-commande": "BC",
+  facture: "FAC",
+  "bon-de-livraison": "BL",
+};
 
 export interface Item {
   id: string;
   name: string;
   description?: string;
   price_ht: number;
-  tva?: number; // percentage (e.g., 20)
+  tva?: number | null; // rate as decimal (0.2 for 20%)
   category?: string;
   unit?: string;
   supplier_id?: string;
@@ -14,47 +21,57 @@ export interface Item {
 
 export interface Template {
   id: string;
-  type: DocumentType;
+  type: DocumentType | "all";
   name: string;
-  content: string; // body with placeholders
+  content: string; // body template with placeholders
   styles?: Record<string, any>;
   header?: string;
   footer?: string;
   is_default?: boolean;
-  company_info?: any;
-  logo?: string | null;
+  company_info?: {
+    name?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    logoDataUrl?: string; // data URL for embedding
+  };
   terms_conditions?: string;
   version?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface DocumentLine {
-  item_id: string;
+export interface DocumentItem {
+  item_id?: string;
   name: string;
   description?: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   price_ht: number;
-  tva: number; // percent
-  total_ht: number;
-  total_ttc: number;
+  tva?: number | null; // decimal
+  total_ht?: number;
+  total_tva?: number;
+  total_ttc?: number;
 }
 
-export interface Doc {
+export interface DocumentData {
   id: string;
   type: DocumentType;
   number: string;
   date: string;
   client_id?: string;
   fournisseur_id?: string;
-  items: DocumentLine[];
+  items: DocumentItem[];
   total_ht: number;
   total_tva: number;
   total_ttc: number;
-  tva_breakdown: Array<{ tva: number; base: number; tva_amount: number }>;
+  tva_breakdown: Record<string, { base: number; tva: number }>;
   status?: string;
   notes?: string;
   template_id?: string;
-  pdf_data?: string; // base64 or blob-url
+  pdf_data?: string; // base64 pdf or blob url
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Client {
@@ -63,7 +80,7 @@ export interface Client {
   address?: string;
   email?: string;
   phone?: string;
-  type: 'client';
+  type?: "client";
 }
 
 export interface Fournisseur {
@@ -76,5 +93,5 @@ export interface Fournisseur {
   payment_terms?: string;
   delivery_terms?: string;
   bank_info?: string;
-  type: 'fournisseur';
+  type?: "fournisseur";
 }

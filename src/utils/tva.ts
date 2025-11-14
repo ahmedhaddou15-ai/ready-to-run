@@ -1,39 +1,55 @@
-import { DocumentLine } from '../types';
+import { DocumentItem } from "../types";
 
-export function ensureItemTva(item: Partial<DocumentLine>) {
-  return { ...item, tva: item.tva ?? 20 };
+/**
+ * Ensure item tva default 20% if null/undefined
+ * rate is decimal (0.2)
+ */
+export function normalizeTva(rate?: number | null) {
+  if (rate === null || rate === undefined) return 0.2;
+  return rate;
 }
 
-export function calcLineTotals(line: DocumentLine) {
-  const total_ht = +(line.price_ht * line.quantity);
-  const total_tva = +(total_ht * (line.tva / 100));
-  const total_ttc = +(total_ht + total_tva);
-  return { ...line, total_ht, total_ttc, total_tva };
-}
+/**
+ * Compute totals for a list of document items.
+ * Returns totals and tva breakdown per rate.
+ */
+export function computeTotals(items: DocumentItem[]) {
+  let total_ht = 0;
+  let total_tva = 0;
+  let total_ttc = 0;
+  const breakdown: Record<string, { base: number; tva: number }> = {};
 
-export function calcDocTotals(lines: DocumentLine[]) {
-  const totals = lines.reduce(
-    (acc, l) => {
-      const total_ht = acc.total_ht + l.total_ht;
-      const tva_amount = acc.total_tva + l.total_ht * (l.tva / 100);
-      return { total_ht, total_tva: tva_amount };
-    },
-    { total_ht: 0, total_tva: 0 }
-  );
-  const total_ttc = +(totals.total_ht + totals.total_tva);
-  const tva_breakdown = Object.values(
-    lines.reduce((acc: Record<string, any>, l) => {
-      const key = String(l.tva);
-      acc[key] = acc[key] || { tva: l.tva, base: 0, tva_amount: 0 };
-      acc[key].base += l.total_ht;
-      acc[key].tva_amount += l.total_ht * (l.tva / 100);
-      return acc;
-    }, {})
-  );
+  for (const it of items) {
+    const rate = normalizeTva(it.tva);
+    const qty = it.quantity || 1;
+    const base = (it.price_ht || 0) * qty;
+    const tva = base * rate;
+    const ttc = base + tva;
+
+    it.total_ht = round(base);
+    it.total_tva = round(tva);
+    it.total_ttc = round(ttc);
+
+    total_ht += base;
+    total_tva += tva;
+    total_ttc += ttc;
+
+    const key = String(Math.round(rate * 100)); // e.g., "20"
+    if (!breakdown[key]) breakdown[key] = { base: 0, tva: 0 };
+    breakdown[key].base += base;
+    breakdown[key].tva += tva;
+  }
+
   return {
-    total_ht: +totals.total_ht.toFixed(2),
-    total_tva: +totals.total_tva.toFixed(2),
-    total_ttc: +total_ttc.toFixed(2),
-    tva_breakdown: tva_breakdown.map((b: any) => ({ ...b, tva_amount: +b.tva_amount.toFixed(2), base: +b.base.toFixed(2) }))
+    total_ht: round(total_ht),
+    total_tva: round(total_tva),
+    total_ttc: round(total_ttc),
+    tva_breakdown: Object.fromEntries(
+      Object.entries(breakdown).map(([k, v]) => [k, { base: round(v.base), tva: round(v.tva) }])
+    ),
   };
+}
+
+function round(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
